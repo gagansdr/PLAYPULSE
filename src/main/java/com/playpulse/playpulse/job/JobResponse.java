@@ -9,10 +9,11 @@ public record JobResponse(
         JobPriority priority,
         JobStatus status,
         int attempts,
+        int pendingDependencies,
         Instant createdAt) {
 
     public static JobResponse from(Job job) {
-        return new JobResponse(job.getId(), job.getType(), job.getPriority(),
-                job.getStatus(), job.getAttempts(), job.getCreatedAt());
+        return new JobResponse(job.getId(), job.getType(), job.getPriority(), job.getStatus(),
+                job.getAttempts(), job.getPendingDependencies(), job.getCreatedAt());
     }
 }
