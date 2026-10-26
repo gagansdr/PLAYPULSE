@@ -31,22 +31,13 @@ public class DependencyService {
     /** A job COMPLETED: unblock its children. Returns the children that are now PENDING and ready to enqueue. */
     @Transactional
     public List<Job> onJobCompleted(UUID parentId) {
-        List<UUID> childIds = dependencyRepository.findByIdDependsOnJobId(parentId).stream()
-                .map(d -> d.getId().getJobId())
-                .toList();
+        List<UUID> childIds = dependencyRepository.findChildIds(parentId);
         if (childIds.isEmpty()) {
             return List.of();
         }
-
-        jobRepository.decrementPending(childIds, Instant.now());
-
-        List<Job> released = new ArrayList<>();
-        for (UUID childId : childIds) {
-            if (jobRepository.releaseIfReady(childId, JobStatus.WAITING, JobStatus.PENDING, Instant.now()) == 1) {
-                jobRepository.findById(childId).ifPresent(released::add);
-            }
-        }
-        return released;
+        return jobRepository.decrementAndRelease(childIds, Instant.now()).stream()
+                .filter(child -> child.getStatus() == JobStatus.PENDING)
+                .toList();
     }
 
     /** A job went DEAD (or was cancelled): everything downstream can never run, so cancel it, transitively. */

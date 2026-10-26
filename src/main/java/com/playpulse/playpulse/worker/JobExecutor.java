@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,18 +38,13 @@ public class JobExecutor {
     }
 
     public void execute(UUID jobId) {
-        Job job = jobRepository.findById(jobId).orElse(null);
+        // One atomic statement: take the job (PENDING/FAILED -> RUNNING, attempts + 1) and read it back.
+        // If another worker already took it, or it is finished/cancelled, there is nothing to do.
+        Job job = jobRepository.claim(jobId, Instant.now()).orElse(null);
         if (job == null) {
-            log.warn("Dequeued job {} but it is not in the database; skipping", jobId);
+            log.warn("Dequeued job {} but it could not be claimed (missing, or not PENDING/FAILED); skipping", jobId);
             return;
         }
-        if (job.getStatus() != JobStatus.PENDING && job.getStatus() != JobStatus.FAILED) {
-            log.warn("Dequeued job {} but its status is {}; skipping", jobId, job.getStatus());
-            return;
-        }
-
-        job.markRunning();
-        jobRepository.save(job);
 
         try {
             JobHandler handler = handlers.get(job.getType());
@@ -61,8 +57,7 @@ public class JobExecutor {
             return;
         }
 
-        job.markCompleted();
-        jobRepository.save(job);
+        jobRepository.markCompleted(job.getId(), Instant.now());
         log.info("Job {} ({}, {}) COMPLETED on attempt {}", job.getId(), job.getType(), job.getPriority(),
                 job.getAttempts());
         releaseChildren(job);
