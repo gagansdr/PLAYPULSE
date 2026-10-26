@@ -30,6 +30,10 @@ public class Job {
     @Column(name = "pending_dependencies", nullable = false)
     private int pendingDependencies;
 
+    /** The match event that created this job, if any. */
+    @Column(name = "event_id")
+    private UUID eventId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -44,6 +48,10 @@ public class Job {
         this.payload = payload;
         this.priority = priority;
         this.status = JobStatus.PENDING;
+    }
+
+    public void attachToEvent(UUID eventId) {
+        this.eventId = eventId;
     }
 
     /** Blocks this job until {@code unfinishedParents} parent jobs complete. */
@@ -93,6 +101,7 @@ public class Job {
     public JobStatus getStatus() { return status; }
     public int getAttempts() { return attempts; }
     public int getPendingDependencies() { return pendingDependencies; }
+    public UUID getEventId() { return eventId; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

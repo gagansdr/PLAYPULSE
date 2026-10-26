@@ -1,16 +1,19 @@
 package com.playpulse.playpulse.worker.handlers;
 
+import com.playpulse.playpulse.fantasy.LeaderboardService;
 import com.playpulse.playpulse.job.Job;
 import com.playpulse.playpulse.worker.JobHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/** Placeholder: simulates refreshing the leaderboard. */
+/** Rebuilds one league's Redis leaderboard from the committed team totals. Idempotent. */
 @Component
 public class LeaderboardUpdateHandler implements JobHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(LeaderboardUpdateHandler.class);
+    private final LeaderboardService leaderboardService;
+
+    public LeaderboardUpdateHandler(LeaderboardService leaderboardService) {
+        this.leaderboardService = leaderboardService;
+    }
 
     @Override
     public String type() {
@@ -18,8 +21,8 @@ public class LeaderboardUpdateHandler implements JobHandler {
     }
 
     @Override
-    public void handle(Job job) throws Exception {
-        log.info("Updating leaderboard, payload={}", job.getPayload());
-        Thread.sleep(300);
+    public void handle(Job job) {
+        long leagueId = JobPayload.parse(job.getPayload()).requireLong("leagueId");
+        leaderboardService.rebuildLeague(leagueId);
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,9 +40,14 @@ public class JobService {
 
     public Map<String, Job> submitGraph(SubmitGraphRequest request) {
         JobGraphValidator.validate(request.nodes());
-        Map<String, Job> created = tx.execute(status -> createGraph(request));
-        created.values().forEach(this::enqueueIfRunnable);   // only root jobs are PENDING; the rest are WAITING
+        Map<String, Job> created = tx.execute(status -> createGraph(request, null));
+        enqueueRunnable(created.values());
         return created;
+    }
+
+    /** Pushes the jobs that are ready to run (PENDING) to Redis. Call it only AFTER the creating transaction committed. */
+    public void enqueueRunnable(Collection<Job> jobs) {
+        jobs.forEach(this::enqueueIfRunnable);   // roots are PENDING; the rest are WAITING and stay out of Redis
     }
 
     public Job get(UUID id) {
@@ -82,10 +88,15 @@ public class JobService {
         return job;
     }
 
-    private Map<String, Job> createGraph(SubmitGraphRequest request) {
+    /**
+     * Saves every job and arrow of a graph. Must run inside a transaction (the caller's) and does NOT enqueue:
+     * the caller enqueues after commit. {@code eventId} (nullable) tags the jobs with the event that created them.
+     */
+    public Map<String, Job> createGraph(SubmitGraphRequest request, UUID eventId) {
         Map<String, Job> byKey = new LinkedHashMap<>();
         for (var node : request.nodes()) {
             Job job = new Job(node.type(), node.payload(), node.priority());
+            job.attachToEvent(eventId);
             int parents = JobGraphValidator.distinct(node).size();
             if (parents > 0) {
                 job.markWaiting(parents);

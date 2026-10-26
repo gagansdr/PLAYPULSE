@@ -1,16 +1,19 @@
 package com.playpulse.playpulse.worker.handlers;
 
+import com.playpulse.playpulse.fantasy.NotificationService;
 import com.playpulse.playpulse.job.Job;
 import com.playpulse.playpulse.worker.JobHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/** Placeholder: simulates sending a push notification. */
+/** Writes one notification (with the team's new rank) to the outbox. Idempotent per (team, event). */
 @Component
 public class PushNotificationHandler implements JobHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(PushNotificationHandler.class);
+    private final NotificationService notificationService;
+
+    public PushNotificationHandler(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
 
     @Override
     public String type() {
@@ -18,8 +21,9 @@ public class PushNotificationHandler implements JobHandler {
     }
 
     @Override
-    public void handle(Job job) throws Exception {
-        log.info("Sending push notification, payload={}", job.getPayload());
-        Thread.sleep(300);
+    public void handle(Job job) {
+        JobPayload payload = JobPayload.parse(job.getPayload());
+        notificationService.notifyTeam(payload.requireLong("teamId"), payload.requireLong("leagueId"),
+                payload.requireUuid("eventId"), payload.requireString("type"), payload.requireLong("playerId"));
     }
 }

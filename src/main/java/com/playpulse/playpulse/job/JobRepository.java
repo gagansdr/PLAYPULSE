@@ -14,6 +14,17 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
 
     List<Job> findByStatusAndUpdatedAtBefore(JobStatus status, Instant cutoff);
 
+    long countByEventId(UUID eventId);
+
+    interface StatusCount {
+        JobStatus getStatus();
+        long getCount();
+    }
+
+    /** How many of an event's jobs are in each status: the progress of that event's fan-out. */
+    @Query("select j.status as status, count(j) as count from Job j where j.eventId = :eventId group by j.status")
+    List<StatusCount> countByStatusForEvent(@Param("eventId") UUID eventId);
+
     /**
      * A parent finished: lower each child's unfinished-parent counter by one.
      * Done as a single SQL UPDATE so two parents finishing at once cannot overwrite each other.
