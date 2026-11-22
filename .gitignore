@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Personal interview study notes: never commit
+interview-prep/
