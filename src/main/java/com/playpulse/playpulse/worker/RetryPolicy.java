@@ -29,8 +29,8 @@ public class RetryPolicy {
 
     /** Exponential backoff (base * 2^(attempts-1), capped), then jitter to a random 50-100% of that. */
     public long nextDelayMs(int attemptsSoFar) {
-        long exponential = baseDelayMs * (1L << Math.min(Math.max(attemptsSoFar - 1, 0), 20));
+        long exponential = baseDelayMs * (1L << Math.min(Math.max(attemptsSoFar - 1, 0), 20)); /** 1s,2s,4s, doubling every attempt so attempt increases wait increases */
         long capped = Math.min(exponential, maxDelayMs);
-        return ThreadLocalRandom.current().nextLong(capped / 2, capped + 1);
+        return ThreadLocalRandom.current().nextLong(capped / 2, capped + 1); /**randomness because if 1000 jobs fail we need to make sure they attempt again at different times */
     }
 }
